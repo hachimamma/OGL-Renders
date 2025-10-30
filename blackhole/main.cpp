@@ -1,3 +1,4 @@
+// blackhole/main.cpp
 #ifdef __APPLE__
     #define GL_SILENCE_DEPRECATION
     #include <OpenGL/gl3.h>
@@ -12,374 +13,280 @@
 #include <iostream>
 #include <cmath>
 
-const char* vertexShaderSource = R"(
+const char* vtx = R"(
 #version 330 core
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec2 aTexCoord;
-
-out vec2 TexCoord;
-
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
+out vec2 uv;
+uniform mat4 m,v,p;
 void main() {
-    gl_Position = projection * view * model * vec4(aPos, 1.0);
-    TexCoord = aTexCoord;
+    gl_Position = p*v*m*vec4(aPos,1.0);
+    uv = aTexCoord;
 }
 )";
 
-const char* fragmentShaderSource = R"(
+const char* frag = R"(
 #version 330 core
 out vec4 FragColor;
-in vec2 TexCoord;
+in vec2 uv;
+uniform float t;
+uniform vec3 cam;
 
-uniform float time;
-uniform vec3 cameraPos;
+const float sr = 0.15;
+const float eh = 0.2;
+const float di = 0.4;
+const float do_ = 3.5;
 
-const float schwarzschildRadius = 0.15;
-const float eventHorizon = 0.2;
-const float accretionDiskInner = 0.4;
-const float accretionDiskOuter = 3.5;
+float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
 
-float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+float n(vec2 p){
+    vec2 i=floor(p),f=fract(p);
+    f=f*f*(3.0-2.0*f);
+    float a=h(i),b=h(i+vec2(1,0)),c=h(i+vec2(0,1)),d=h(i+vec2(1,1));
+    return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);
 }
 
-float hash3(vec3 p) {
-    return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-}
-
-float noise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float a = hash(i);
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-
-float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    float frequency = 1.0;
-    for(int i = 0; i < 6; i++) {
-        value += amplitude * noise(p * frequency);
-        frequency *= 2.0;
-        amplitude *= 0.5;
+float fbm(vec2 p){
+    float val=0,amp=.5,freq=1;
+    for(int i=0;i<6;i++){
+        val+=amp*n(p*freq);
+        freq*=2;amp*=.5;
     }
-    return value;
+    return val;
 }
 
-float noise3d(vec3 p) {
-    vec3 i = floor(p);
-    vec3 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
+vec3 march(vec3 o,vec3 d){
+    vec3 pos=o;
+    float td=0;
+    vec3 col=vec3(0);
+    float alpha=0;
     
-    float n = hash3(i);
-    return n;
-}
-
-vec3 rayMarch(vec3 origin, vec3 direction) {
-    vec3 pos = origin;
-    float totalDist = 0.0;
-    const int maxSteps = 200;
-    const float maxDist = 25.0;
-    vec3 accumulatedColor = vec3(0.0);
-    float accumulatedAlpha = 0.0;
-    
-    for(int i = 0; i < maxSteps; i++) {
-        float dist = length(pos);
+    for(int i=0;i<200;i++){
+        float r=length(pos);
+        if(r<eh) return col;
         
-        if(dist < eventHorizon) {
-            return accumulatedColor + vec3(0.0);
+        float dh=abs(pos.y);
+        float dt=.25+.15*sin(t*1.2);
+        
+        if(dh<dt&&r>di&&r<do_){
+            float dn=(r-di)/(do_-di);
+            float av=(1./sqrt(dn+.1))*2.5;
+            float ang=atan(pos.z,pos.x)+t*av;
+            
+            vec2 tc=vec2(ang*6+t*.8,dn*15);
+            float turb=fbm(tc);
+            float sp=sin(ang*12-dn*20+t*4)*.5+.5;
+            float hf=1.-dh/dt;hf=pow(hf,2);
+            float dens=turb*hf*(.6+sp*.4);
+            dens*=(1.-dn*.5);
+            
+            float hs=n(vec2(ang*8+t*2,dn*10));
+            if(hs>.82) dens*=4.+sin(t*15);
+            
+            vec3 c;
+            float tmp=1.-dn;
+            
+            if(tmp>.75){
+                c=mix(vec3(.6,.7,1),vec3(1),  (tmp-.75)*4);
+                c+=vec3(.4,.5,1.2)*hs*3;
+            }else if(tmp>.6){
+                c=mix(vec3(.3,.9,1),vec3(.9,.95,1),(tmp-.6)*6.66);
+                c+=vec3(.5,1,1.2)*turb*.8;
+            }else if(tmp>.45){
+                c=mix(vec3(.8,1,.3),vec3(1,1,.7),(tmp-.45)*6.66);
+                c+=vec3(1,1,.4)*sp*.6;
+            }else if(tmp>.3){
+                c=mix(vec3(1,.6,.1),vec3(1,.9,.4),(tmp-.3)*6.66);
+                c+=vec3(1.2,.7,.2)*turb*.7;
+            }else{
+                c=mix(vec3(.5,.05,.1),vec3(1,.3,.5),tmp*3.33);
+                c+=vec3(1,.2,.6)*sp*.5;
+            }
+            
+            c.r+=turb*.3;
+            c.g+=sin(ang*15+t*2)*.2;
+            c.b+=cos(ang*20-t*3)*.25;
+            
+            float br=dens*(3+tmp*4);
+            br*=(1+sin(t*5+ang*8)*.5);
+            
+            vec3 dc=c*br;
+            float a=dens*.15;
+            col+=dc*a*(1-alpha);
+            alpha+=a*(1-alpha);
+            if(alpha>.95)break;
         }
         
-        float diskHeight = abs(pos.y);
-        float diskThickness = 0.25 + 0.15 * sin(time * 1.2);
+        float g=(sr*sr)/(r*r+.01);
+        vec3 gd=-normalize(pos);
+        d=normalize(d+gd*g*.4);
         
-        if(diskHeight < diskThickness && dist > accretionDiskInner && dist < accretionDiskOuter) {
-            float diskDist = dist - accretionDiskInner;
-            float diskNorm = diskDist / (accretionDiskOuter - accretionDiskInner);
-            
-            float angularVelocity = (1.0 / sqrt(diskNorm + 0.1)) * 2.5;
-            float angle = atan(pos.z, pos.x) + time * angularVelocity;
-            
-            vec2 turbCoord = vec2(angle * 6.0 + time * 0.8, diskNorm * 15.0);
-            float turbulence = fbm(turbCoord);
-            
-            float spiral = sin(angle * 12.0 - diskNorm * 20.0 + time * 4.0) * 0.5 + 0.5;
-            
-            float heightFade = 1.0 - (diskHeight / diskThickness);
-            heightFade = pow(heightFade, 2.0);
-            
-            float density = turbulence * heightFade * (0.6 + spiral * 0.4);
-            density *= (1.0 - diskNorm * 0.5);
-            
-            float hotspot = noise(vec2(angle * 8.0 + time * 2.0, diskNorm * 10.0));
-            if(hotspot > 0.82) {
-                density *= 4.0 + sin(time * 15.0) * 1.0;
-            }
-            
-            vec3 color;
-            float temp = 1.0 - diskNorm;
-            
-            if(temp > 0.75) {
-                color = mix(vec3(0.6, 0.7, 1.0), vec3(1.0, 1.0, 1.0), (temp - 0.75) * 4.0);
-                color += vec3(0.4, 0.5, 1.2) * hotspot * 3.0;
-            }
-            else if(temp > 0.6) {
-                color = mix(vec3(0.3, 0.9, 1.0), vec3(0.9, 0.95, 1.0), (temp - 0.6) * 6.66);
-                color += vec3(0.5, 1.0, 1.2) * turbulence * 0.8;
-            }
-            else if(temp > 0.45) {
-                color = mix(vec3(0.8, 1.0, 0.3), vec3(1.0, 1.0, 0.7), (temp - 0.45) * 6.66);
-                color += vec3(1.0, 1.0, 0.4) * spiral * 0.6;
-            }
-            else if(temp > 0.3) {
-                color = mix(vec3(1.0, 0.6, 0.1), vec3(1.0, 0.9, 0.4), (temp - 0.3) * 6.66);
-                color += vec3(1.2, 0.7, 0.2) * turbulence * 0.7;
-            }
-            else {
-                color = mix(vec3(0.5, 0.05, 0.1), vec3(1.0, 0.3, 0.5), temp * 3.33);
-                color += vec3(1.0, 0.2, 0.6) * spiral * 0.5;
-            }
-            
-            color.r += turbulence * 0.3;
-            color.g += sin(angle * 15.0 + time * 2.0) * 0.2;
-            color.b += cos(angle * 20.0 - time * 3.0) * 0.25;
-            
-            float brightness = density * (3.0 + temp * 4.0);
-            brightness *= (1.0 + sin(time * 5.0 + angle * 8.0) * 0.5);
-            
-            vec3 diskColor = color * brightness;
-            
-            float alpha = density * 0.15;
-            accumulatedColor += diskColor * alpha * (1.0 - accumulatedAlpha);
-            accumulatedAlpha += alpha * (1.0 - accumulatedAlpha);
-            
-            if(accumulatedAlpha > 0.95) {
-                break;
-            }
-        }
-        
-        float gravity = (schwarzschildRadius * schwarzschildRadius) / (dist * dist + 0.01);
-        vec3 gravityDir = -normalize(pos);
-        direction = normalize(direction + gravityDir * gravity * 0.4);
-        
-        float stepSize = 0.03 + dist * 0.015;
-        if(dist > accretionDiskInner - 0.5 && dist < accretionDiskOuter + 0.5) {
-            stepSize *= 0.4;
-        }
-        
-        pos += direction * stepSize;
-        totalDist += stepSize;
-        
-        if(totalDist > maxDist) {
-            break;
-        }
+        float step=.03+r*.015;
+        if(r>di-.5&&r<do_+.5)step*=.4;
+        pos+=d*step;
+        td+=step;
+        if(td>25)break;
     }
     
-    vec3 starDir = normalize(direction);
-    float starNoise = hash(starDir.xy * 200.0 + starDir.z * 100.0);
-    if(starNoise > 0.997) {
-        float starBrightness = (starNoise - 0.997) * 1000.0;
-        vec3 starColor = mix(vec3(1.0, 0.9, 0.8), vec3(0.8, 0.9, 1.0), hash(starDir.yz * 123.0));
-        accumulatedColor += starColor * starBrightness * (1.0 - accumulatedAlpha);
+    vec3 sd=normalize(d);
+    float sn=h(sd.xy*200+sd.z*100);
+    if(sn>.997){
+        float sb=(sn-.997)*1000;
+        vec3 sc=mix(vec3(1,.9,.8),vec3(.8,.9,1),h(sd.yz*123));
+        col+=sc*sb*(1-alpha);
     }
     
-    float bgGlow = fbm(starDir.xy * 3.0 + time * 0.05) * 0.03;
-    vec3 nebulaColor = vec3(0.1, 0.05, 0.15) * bgGlow;
-    accumulatedColor += nebulaColor * (1.0 - accumulatedAlpha);
-    
-    accumulatedColor += vec3(0.002, 0.003, 0.01) * (1.0 - accumulatedAlpha);
-    
-    return accumulatedColor;
+    float bg=fbm(sd.xy*3+t*.05)*.03;
+    col+=vec3(.1,.05,.15)*bg*(1-alpha);
+    col+=vec3(.002,.003,.01)*(1-alpha);
+    return col;
 }
 
-void main() {
-    vec2 uv = (TexCoord - 0.5) * 2.0;
+void main(){
+    vec2 uv_=(uv-.5)*2;
+    vec3 ro=cam;
+    vec3 tgt=vec3(0);
+    vec3 fwd=normalize(tgt-ro);
+    vec3 rt=normalize(cross(vec3(0,1,0),fwd));
+    vec3 up=cross(fwd,rt);
+    vec3 rd=normalize(fwd+uv_.x*rt+uv_.y*up);
     
-    vec3 rayOrigin = cameraPos;
-    
-    vec3 target = vec3(0.0, 0.0, 0.0);
-    vec3 forward = normalize(target - rayOrigin);
-    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
-    vec3 up = cross(forward, right);
-    
-    vec3 rayDir = normalize(forward + uv.x * right + uv.y * up);
-    
-    vec3 color = rayMarch(rayOrigin, rayDir);
-    
-    color = color / (color + vec3(0.5));
-    color = pow(color, vec3(0.9));
-    color = pow(color, vec3(1.0/2.2));
-    
-    color.r = pow(color.r, 0.95);
-    color.b = pow(color.b, 1.05);
-    
-    FragColor = vec4(color, 1.0);
+    vec3 c=march(ro,rd);
+    c=c/(c+vec3(.5));
+    c=pow(c,vec3(.9));
+    c=pow(c,vec3(1./2.2));
+    c.r=pow(c.r,.95);
+    c.b=pow(c.b,1.05);
+    FragColor=vec4(c,1);
 }
 )";
 
-GLuint compileShader(GLenum type, const char* source) {
-    GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source, nullptr);
-    glCompileShader(shader);
-    
-    int success;
-    char infoLog[512];
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if(!success) {
-        glGetShaderInfoLog(shader, 512, nullptr, infoLog);
-        std::cerr << "Shader compilation failed:\n" << infoLog << std::endl;
+GLuint compShader(GLenum type,const char* src){
+    GLuint s=glCreateShader(type);
+    glShaderSource(s,1,&src,nullptr);
+    glCompileShader(s);
+    int ok;char log[512];
+    glGetShaderiv(s,GL_COMPILE_STATUS,&ok);
+    if(!ok){
+        glGetShaderInfoLog(s,512,nullptr,log);
+        std::cerr<<"Shader err:\n"<<log<<std::endl;
     }
-    return shader;
+    return s;
 }
 
-GLuint createShaderProgram() {
-    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
-    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
-    
-    GLuint program = glCreateProgram();
-    glAttachShader(program, vertexShader);
-    glAttachShader(program, fragmentShader);
-    glLinkProgram(program);
-    
-    int success;
-    char infoLog[512];
-    glGetProgramiv(program, GL_LINK_STATUS, &success);
-    if(!success) {
-        glGetProgramInfoLog(program, 512, nullptr, infoLog);
-        std::cerr << "Shader linking failed:\n" << infoLog << std::endl;
+GLuint mkProg(){
+    GLuint vs=compShader(GL_VERTEX_SHADER,vtx);
+    GLuint fs=compShader(GL_FRAGMENT_SHADER,frag);
+    GLuint prog=glCreateProgram();
+    glAttachShader(prog,vs);
+    glAttachShader(prog,fs);
+    glLinkProgram(prog);
+    int ok;char log[512];
+    glGetProgramiv(prog,GL_LINK_STATUS,&ok);
+    if(!ok){
+        glGetProgramInfoLog(prog,512,nullptr,log);
+        std::cerr<<"Link err:\n"<<log<<std::endl;
     }
-    
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-    
-    return program;
+    glDeleteShader(vs);glDeleteShader(fs);
+    return prog;
 }
 
-void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
-    glViewport(0, 0, width, height);
+void fbResize(GLFWwindow* w,int width,int height){
+    glViewport(0,0,width,height);
 }
 
-int main() {
-    if(!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
+int main(){
+    if(!glfwInit()){
+        std::cerr<<"GLFW init fail"<<std::endl;
         return -1;
     }
     
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR,3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE,GLFW_OPENGL_CORE_PROFILE);
     
-    GLFWwindow* window = glfwCreateWindow(1600, 900, "Black Hole Renderer", nullptr, nullptr);
-    if(!window) {
-        std::cerr << "Failed to create GLFW window" << std::endl;
+    GLFWwindow* win=glfwCreateWindow(1600,900,"Black Hole",nullptr,nullptr);
+    if(!win){
+        std::cerr<<"Window fail"<<std::endl;
         glfwTerminate();
         return -1;
     }
     
-    glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+    glfwMakeContextCurrent(win);
+    glfwSetFramebufferSizeCallback(win,fbResize);
     
 #ifndef __APPLE__
-    if(glewInit() != GLEW_OK) {
-        std::cerr << "Failed to initialize GLEW" << std::endl;
+    if(glewInit()!=GLEW_OK){
+        std::cerr<<"GLEW fail"<<std::endl;
         return -1;
     }
 #endif
     
-    glViewport(0, 0, 1600, 900);
+    glViewport(0,0,1600,900);
     
-    float vertices[] = {
-        -1.0f, -1.0f, 0.0f,  0.0f, 0.0f,
-         1.0f, -1.0f, 0.0f,  1.0f, 0.0f,
-         1.0f,  1.0f, 0.0f,  1.0f, 1.0f,
-        -1.0f,  1.0f, 0.0f,  0.0f, 1.0f
+    float verts[]={
+        -1,-1,0, 0,0,
+         1,-1,0, 1,0,
+         1, 1,0, 1,1,
+        -1, 1,0, 0,1
     };
+    unsigned int idx[]={0,1,2,2,3,0};
     
-    unsigned int indices[] = {
-        0, 1, 2,
-        2, 3, 0
-    };
-    
-    GLuint VAO, VBO, EBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-    
-    glBindVertexArray(VAO);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-    
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    GLuint vao,vbo,ebo;
+    glGenVertexArrays(1,&vao);
+    glGenBuffers(1,&vbo);
+    glGenBuffers(1,&ebo);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER,vbo);
+    glBufferData(GL_ARRAY_BUFFER,sizeof(verts),verts,GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,sizeof(idx),idx,GL_STATIC_DRAW);
+    glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,5*sizeof(float),(void*)0);
     glEnableVertexAttribArray(0);
-    
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,5*sizeof(float),(void*)(3*sizeof(float)));
     glEnableVertexAttribArray(1);
     
-    GLuint shaderProgram = createShaderProgram();
+    GLuint prog=mkProg();
+    glm::mat4 mdl=glm::mat4(1.0f);
+    glm::mat4 view=glm::translate(glm::mat4(1.0f),glm::vec3(0,0,-3));
     
-    glm::mat4 model = glm::mat4(1.0f);
-    glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -3.0f));
-    
-    while(!glfwWindowShouldClose(window)) {
-        if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-            glfwSetWindowShouldClose(window, true);
-        }
+    while(!glfwWindowShouldClose(win)){
+        if(glfwGetKey(win,GLFW_KEY_ESCAPE)==GLFW_PRESS)
+            glfwSetWindowShouldClose(win,true);
         
-        int width, height;
-        glfwGetFramebufferSize(window, &width, &height);
-        float aspectRatio = (float)width / (float)height;
-        glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
+        int w,h;
+        glfwGetFramebufferSize(win,&w,&h);
+        float asp=(float)w/(float)h;
+        glm::mat4 proj=glm::perspective(glm::radians(45.0f),asp,0.1f,100.0f);
         
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearColor(0,0,0,1);
         glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(prog);
         
-        glUseProgram(shaderProgram);
+        float tm=glfwGetTime();
+        float spd=tm*.8f,inw=tm*.15f;
+        float rad=fmax(5.0f-inw,.8f);
+        float ang=spd*2.0f;
+        float cx=cos(ang)*rad,cz=sin(ang)*rad;
+        float cy=.3f+sin(spd*.5f)*.5f;
         
-        float time = glfwGetTime();
+        glUniform1f(glGetUniformLocation(prog,"t"),tm);
+        glUniform3f(glGetUniformLocation(prog,"cam"),cx,cy,cz);
+        glUniformMatrix4fv(glGetUniformLocation(prog,"m"),1,GL_FALSE,glm::value_ptr(mdl));
+        glUniformMatrix4fv(glGetUniformLocation(prog,"v"),1,GL_FALSE,glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(prog,"p"),1,GL_FALSE,glm::value_ptr(proj));
         
-        float spiralSpeed = time * 0.8f;
-        float inwardSpeed = time * 0.15f;
-        
-        float radius = 5.0f - inwardSpeed;
-        radius = fmax(radius, 0.8f);
-        
-        float angle = spiralSpeed * 2.0f;
-        float camX = cos(angle) * radius;
-        float camZ = sin(angle) * radius;
-        float camY = 0.3f + sin(spiralSpeed * 0.5f) * 0.5f;
-        
-        float distToCenter = sqrt(camX * camX + camZ * camZ);
-        
-        glUniform1f(glGetUniformLocation(shaderProgram, "time"), time);
-        glUniform3f(glGetUniformLocation(shaderProgram, "cameraPos"), camX, camY, camZ);
-        
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        
-        glfwSwapBuffers(window);
+        glBindVertexArray(vao);
+        glDrawElements(GL_TRIANGLES,6,GL_UNSIGNED_INT,0);
+        glfwSwapBuffers(win);
         glfwPollEvents();
     }
     
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
-    glDeleteProgram(shaderProgram);
-    
+    glDeleteVertexArrays(1,&vao);
+    glDeleteBuffers(1,&vbo);
+    glDeleteBuffers(1,&ebo);
+    glDeleteProgram(prog);
     glfwTerminate();
     return 0;
 }
