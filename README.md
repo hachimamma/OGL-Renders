@@ -6,6 +6,6 @@ I am open to ideas, corrections and recommendations!
 
 # To Run (For beginners)
 
-`bash build.sh`
+> bash build.sh
 
 and it'll do it for you!
