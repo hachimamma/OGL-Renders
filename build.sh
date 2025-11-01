@@ -1,8 +1,40 @@
 #!/bin/bash
 
-echo "Building Black Hole Renderer..."
+echo "What do you want to render?"
+echo "1) Black Hole"
+echo "2) Fractals"
+echo ""
+read -p "Choose (1 or 2): " choice
 
-cd blackhole || { echo "Error: blackhole/ directory not found!"; exit 1; }
+case $choice in
+    1)
+        dir="blackhole"
+        exe="blackhole"
+        title="Black Hole Renderer"
+        ;;
+    2)
+        
+        dir="fractal-zoom"
+        exe="fractal"
+        title="Fractal Explorer"
+
+        echo "WASD - Pan Around"
+        echo "Q/E - Zoom In/Zoom Out"
+        echo "SPACE - Toggle Mandelbrot-Julia"
+        echo "Mousewheel - Zoom In/Zoom Out"
+        echo "R - Reset position"
+        echo "ESC - Exit"
+
+        ;;
+    *)
+        echo "Invalid choice!"
+        exit 1
+        ;;
+esac
+
+echo "Building $title..."
+
+cd $dir || { echo "Error: $dir/ directory not found!"; exit 1; }
 
 if [ ! -d "build" ]; then
     echo "Creating build directory..."
@@ -17,9 +49,9 @@ cmake .. || { echo "CMake failed!"; exit 1; }
 echo "Compiling..."
 make || { echo "Build failed!"; exit 1; }
 
-echo "Launching Black Hole Renderer..."
+echo "Launching $title..."
 echo "Press ESC to exit the program"
 echo ""
-./blackhole
+./$exe
 
 cd ../..
