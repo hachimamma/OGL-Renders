@@ -1,6 +1,6 @@
 # GitHub Actions workflow for OGL-Renders
 # Builds and tests the project on multiple platforms using CMake.
-# Includes OpenGL dependencies installation and artefact upload.
+# Includes OpenGL dependencies installation and artifact upload.
 
 name: Build OGL-Renders (CMake Multi-Platform)
 
@@ -69,7 +69,7 @@ jobs:
         cd vcpkg
         bootstrap-vcpkg.bat
         vcpkg install glew glfw3 glm --triplet x64-windows
-        echo "VCPKG_ROOT=%CD%" >> %GITHUB_ENV%
+        echo VCPKG_ROOT=%CD%>> %GITHUB_ENV%
 
     # ---- Shared Setup ----
     - name: Set reusable strings
@@ -81,13 +81,14 @@ jobs:
     # ---- Configure CMake ----
     - name: Configure CMake (Windows)
       if: runner.os == 'Windows'
-      run: >
-        cmake -B ${{ steps.strings.outputs.build-output-dir }}
-        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
-        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
-        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}\scripts\buildsystems\vcpkg.cmake
-        -S ${{ github.workspace }}
+      shell: pwsh
+      run: |
+        cmake -B "${{ steps.strings.outputs.build-output-dir }}" `
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} `
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} `
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} `
+          -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" `
+          -S "${{ github.workspace }}"
 
     - name: Configure CMake (Linux/macOS)
       if: runner.os != 'Windows'
