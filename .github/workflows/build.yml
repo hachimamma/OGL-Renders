@@ -53,7 +53,7 @@ jobs:
           libxxf86vm-dev libxrandr-dev libxinerama-dev libxcursor-dev
 
     # ---- Cache vcpkg (Windows) ----
-    - name: Cache vcpkg
+    - name: Cache vcpkg installed packages
       if: runner.os == 'Windows'
       uses: actions/cache@v4
       with:
@@ -70,36 +70,30 @@ jobs:
         Write-Host "Setting up vcpkg..."
         $env:VCPKG_ROOT = Join-Path $env:GITHUB_WORKSPACE "vcpkg"
 
-        if (!(Test-Path $env:VCPKG_ROOT)) {
-          Write-Host "Cloning vcpkg..."
-          git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
-        } else {
-          Write-Host "vcpkg already exists, updating..."
+        if (Test-Path "$env:VCPKG_ROOT\bootstrap-vcpkg.bat") {
+          Write-Host "Found existing vcpkg installation. Pulling latest changes..."
           Set-Location $env:VCPKG_ROOT
           git pull
-        }
-
-        Write-Host "Bootstrapping vcpkg..."
-        Set-Location $env:VCPKG_ROOT
-        if (Test-Path ".\bootstrap-vcpkg.bat") {
-          & .\bootstrap-vcpkg.bat
-        } elseif (Test-Path ".\bootstrap-vcpkg.sh") {
-          bash ./bootstrap-vcpkg.sh
         } else {
-          Write-Error "vcpkg bootstrap file not found!"
-          exit 1
+          Write-Host "vcpkg missing or corrupted. Re-cloning..."
+          if (Test-Path $env:VCPKG_ROOT) { Remove-Item $env:VCPKG_ROOT -Recurse -Force }
+          git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+          Set-Location $env:VCPKG_ROOT
+          & .\bootstrap-vcpkg.bat
         }
 
         Write-Host "Installing required packages..."
         & .\vcpkg.exe install glew glfw3 glm --triplet x64-windows
 
-        Write-Host "Setting VCPKG_ROOT..."
+        Write-Host "Exporting VCPKG_ROOT..."
         echo "VCPKG_ROOT=$env:VCPKG_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
         $toolchain = Join-Path $env:VCPKG_ROOT "scripts/buildsystems/vcpkg.cmake"
         if (!(Test-Path $toolchain)) {
           Write-Error "vcpkg toolchain file not found at $toolchain"
           exit 1
+        } else {
+          Write-Host "vcpkg setup complete and verified!"
         }
 
     # ---- Set Reusable Strings ----
@@ -114,13 +108,12 @@ jobs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        Write-Host "Checking VCPKG_ROOT..."
-        Write-Host "VCPKG_ROOT = $env:VCPKG_ROOT"
-        if (-not (Test-Path "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake")) {
-          Write-Error "vcpkg toolchain file not found at $env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
-          exit 1
+        Write-Host "Verifying vcpkg path..."
+        if (Test-Path "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake") {
+          Write-Host "Verified: $env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
         } else {
-          Write-Host "vcpkg toolchain verified successfully!"
+          Write-Error "vcpkg toolchain file missing!"
+          exit 1
         }
 
     # ---- Configure CMake (Windows) ----
