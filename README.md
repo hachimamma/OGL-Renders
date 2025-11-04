@@ -9,3 +9,9 @@ I am open to ideas, corrections and recommendations!
 $ `bash build.sh`
 
 and it'll do it for you!
+
+# Otherwise you know the method,
+
+$ `chmod +x build.sh`
+
+If you enjoy using these simulations, please consider starring!
