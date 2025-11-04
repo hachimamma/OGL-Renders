@@ -1,4 +1,3 @@
-// waves/main.cpp
 #ifdef __APPLE__
     #define GL_SILENCE_DEPRECATION
     #include <OpenGL/gl3.h>
@@ -36,28 +35,21 @@ in vec2 uv;
 uniform sampler2D waveTex;
 uniform float t;
 
-vec3 hsv2rgb(vec3 c){
-    vec4 K=vec4(1,2./3.,1./3.,3);
-    vec3 p=abs(fract(c.xxx+K.xyz)*6-K.www);
-    return c.z*mix(K.xxx,clamp(p-K.xxx,0.,1.),c.y);
-}
-
 void main(){
     float h = texture(waveTex, uv).r;
     
-    // height-based coloring
-    vec3 col;
+    // subtle blue gradient
+    vec3 col = vec3(0.1, 0.2, 0.4);
+    
     if(h > 0.){
-        float hue = 0.55 + h * 0.15;
-        col = hsv2rgb(vec3(hue, 0.8, 0.9 + h * 0.1));
+        col = mix(vec3(0.1, 0.3, 0.5), vec3(0.3, 0.5, 0.7), h * 2.);
     } else {
-        float hue = 0.6 + h * 0.2;
-        col = hsv2rgb(vec3(hue, 0.7, 0.7 + abs(h) * 0.3));
+        col = mix(vec3(0.05, 0.1, 0.2), vec3(0.1, 0.2, 0.3), 1. + h * 2.);
     }
     
-    // add specular highlights
-    float spec = pow(max(h, 0.), 3.) * 0.5;
-    col += vec3(spec);
+    // soft highlight
+    float spec = pow(max(h, 0.), 4.) * 0.3;
+    col += vec3(spec * 0.5, spec * 0.6, spec);
     
     FragColor = vec4(col, 1);
 }
@@ -102,8 +94,8 @@ std::vector<float> wave(GRID_W * GRID_H, 0.0f);
 std::vector<float> prevWave(GRID_W * GRID_H, 0.0f);
 
 void updateWave(float dt) {
-    const float c = 0.5f; // wave speed
-    const float damping = 0.998f;
+    const float c = 0.3f; // slower wave speed
+    const float damping = 0.995f; // more damping
     
     std::vector<float> newWave(GRID_W * GRID_H);
     
@@ -132,7 +124,7 @@ void updateWave(float dt) {
 void addRipple(int x, int y, float strength) {
     if(x < 0 || x >= GRID_W || y < 0 || y >= GRID_H) return;
     
-    int radius = 8;
+    int radius = 4;
     for(int dy = -radius; dy <= radius; dy++) {
         for(int dx = -radius; dx <= radius; dx++) {
             int nx = x + dx;
@@ -141,7 +133,7 @@ void addRipple(int x, int y, float strength) {
                 float dist = sqrt(dx*dx + dy*dy);
                 if(dist < radius) {
                     float falloff = 1.0f - (dist / radius);
-                    wave[ny * GRID_W + nx] += strength * falloff;
+                    wave[ny * GRID_W + nx] += strength * falloff * falloff;
                 }
             }
         }
@@ -168,7 +160,7 @@ void cursor_pos_callback(GLFWwindow* w, double xpos, double ypos) {
         int gridX = (int)(xpos / ww * GRID_W);
         int gridY = (int)(ypos / wh * GRID_H);
         
-        addRipple(gridX, gridY, 0.8f);
+        addRipple(gridX, gridY, 0.3f);
         
         // interpolate for smooth drawing
         if(lastMouseX >= 0) {
@@ -180,7 +172,7 @@ void cursor_pos_callback(GLFWwindow* w, double xpos, double ypos) {
                 float t = (float)i / steps;
                 int ix = (int)(lastMouseX + dx * t);
                 int iy = (int)(lastMouseY + dy * t);
-                addRipple(ix, iy, 0.5f);
+                addRipple(ix, iy, 0.2f);
             }
         }
         
@@ -256,9 +248,7 @@ int main(){
     glm::mat4 view=glm::translate(glm::mat4(1.0f),glm::vec3(0,0,-3));
     
     // add initial ripples
-    addRipple(GRID_W/2, GRID_H/2, 3.0f);
-    addRipple(GRID_W/4, GRID_H/4, 2.0f);
-    addRipple(3*GRID_W/4, 3*GRID_H/4, 2.0f);
+    addRipple(GRID_W/2, GRID_H/2, 1.0f);
     
     double lastTime = glfwGetTime();
     
@@ -276,13 +266,15 @@ int main(){
         }
         
         if(glfwGetKey(win,GLFW_KEY_SPACE)==GLFW_PRESS) {
-            addRipple(rand() % GRID_W, rand() % GRID_H, 2.0f);
+            static double lastSpaceTime = 0;
+            if(currentTime - lastSpaceTime > 0.3) {
+                addRipple(rand() % GRID_W, rand() % GRID_H, 1.0f);
+                lastSpaceTime = currentTime;
+            }
         }
         
-        // update wave physics
-        for(int i = 0; i < 3; i++) {
-            updateWave(0.016f);
-        }
+        // update wave physics (slower, more stable)
+        updateWave(0.016f);
         
         int w,h;
         glfwGetFramebufferSize(win,&w,&h);

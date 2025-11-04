@@ -11,12 +11,12 @@ case $choice in
 1)
     dir="blackhole"
     exe="blackhole"
-    title="Black Hole Renderer"
+    title="Blackhole Simulation"
     ;;
 2)
     dir="fractal-zoom"
     exe="fractal"
-    title="Fractal Explorer"
+    title="Fractal Zooms"
     echo ""
     echo "Controls:"
     echo "WASD - Pan Around"
@@ -31,7 +31,7 @@ case $choice in
 3)
     dir="waves"
     exe="waves"
-    title="Wave Simulation"
+    title="Waves"
     echo ""
     echo "Controls:"
     echo "Click & Drag - Create ripples"

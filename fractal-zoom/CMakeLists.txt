@@ -4,7 +4,6 @@ project(FractalExplorer)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Suppress OpenGL warning
 set(OpenGL_GL_PREFERENCE GLVND)
 
 find_package(OpenGL REQUIRED)
