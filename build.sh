@@ -9,12 +9,10 @@ read -p "Choose (1-3): " choice
 
 case $choice in
 1)
-    dir="blackhole"
     exe="blackhole"
     title="Blackhole Simulation"
     ;;
 2)
-    dir="fractal-zoom"
     exe="fractal"
     title="Fractal Zooms"
     echo ""
@@ -29,7 +27,6 @@ case $choice in
     echo ""
     ;;
 3)
-    dir="waves"
     exe="waves"
     title="Waves"
     echo ""
@@ -47,10 +44,9 @@ case $choice in
 esac
 
 echo "Building $title..."
-cd $dir || { echo "Error: $dir/ directory not found!"; exit 1; }
 
 if [ ! -d "build" ]; then
-    echo "Creating build directory..."
+    echo "Creating root build directory..."
     mkdir build
 fi
 
@@ -60,9 +56,17 @@ echo "Running CMake..."
 cmake .. || { echo "CMake failed!"; exit 1; }
 
 echo "Compiling..."
-make || { echo "Build failed!"; exit 1; }
+make -j$(nproc) || { echo "Build failed!"; exit 1; }
 
 echo "Launching $title..."
-./$exe
-
-cd ../..
+case $exe in
+    blackhole)
+        ./blackhole/blackhole
+        ;;
+    fractal)
+        ./fractal-zoom/fractal
+        ;;
+    waves)
+        ./waves/waves
+        ;;
+esac
