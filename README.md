@@ -60,4 +60,4 @@ License
 
 This project is open-source and available under the MIT License.
 
-If you find the simulations interesting or useful, consider leaving a star to support the project.
+### If you find the simulations interesting or useful, consider leaving a star to support the project.
