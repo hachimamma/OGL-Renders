@@ -3,7 +3,7 @@
 This repository showcases a collection of visually engaging and mathematically inspired OpenGL renderings, written entirely in **C++17**.  
 Each module demonstrates a unique concept or effect, such as black holes, fractals, and wave simulations, using low-level rendering techniques.
 
-The goal of this project is to explore advanced rendering ideas, simulation logic, and efficient use of modern OpenGL — purely for creative experimentation.
+The goal of this project is to explore advanced rendering ideas, simulation logic, and efficient use of modern OpenGL, purely for creative experimentation.
 
 ---
 
