@@ -38,7 +38,6 @@ uniform float t;
 void main(){
     float h = texture(waveTex, uv).r;
     
-    // subtle blue gradient
     vec3 col = vec3(0.1, 0.2, 0.4);
     
     if(h > 0.){
@@ -89,13 +88,13 @@ void fbResize(GLFWwindow* w,int width,int height){
     glViewport(0,0,width,height);
 }
 
-// wave simulation buffers
+//buffers (remove comment after bashing)
 std::vector<float> wave(GRID_W * GRID_H, 0.0f);
 std::vector<float> prevWave(GRID_W * GRID_H, 0.0f);
 
 void updateWave(float dt) {
-    const float c = 0.3f; // slower wave speed
-    const float damping = 0.995f; // more damping
+    const float c = 0.3f;
+    const float damping = 0.995f;
     
     std::vector<float> newWave(GRID_W * GRID_H);
     
@@ -103,7 +102,6 @@ void updateWave(float dt) {
         for(int x = 1; x < GRID_W - 1; x++) {
             int idx = y * GRID_W + x;
             
-            // laplacian (neighbors)
             float laplacian = 
                 wave[(y-1)*GRID_W + x] +
                 wave[(y+1)*GRID_W + x] +
@@ -111,7 +109,6 @@ void updateWave(float dt) {
                 wave[y*GRID_W + (x+1)] -
                 4.0f * wave[idx];
             
-            // wave equation: u_tt = c^2 * laplacian
             newWave[idx] = 2.0f * wave[idx] - prevWave[idx] + c * c * laplacian;
             newWave[idx] *= damping;
         }
@@ -162,7 +159,6 @@ void cursor_pos_callback(GLFWwindow* w, double xpos, double ypos) {
         
         addRipple(gridX, gridY, 0.3f);
         
-        // interpolate for smooth drawing
         if(lastMouseX >= 0) {
             float dx = gridX - lastMouseX;
             float dy = gridY - lastMouseY;
@@ -234,7 +230,6 @@ int main(){
     glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,5*sizeof(float),(void*)(3*sizeof(float)));
     glEnableVertexAttribArray(1);
     
-    // create texture for wave data
     GLuint waveTex;
     glGenTextures(1, &waveTex);
     glBindTexture(GL_TEXTURE_2D, waveTex);
@@ -247,7 +242,6 @@ int main(){
     glm::mat4 mdl=glm::mat4(1.0f);
     glm::mat4 view=glm::translate(glm::mat4(1.0f),glm::vec3(0,0,-3));
     
-    // add initial ripples
     addRipple(GRID_W/2, GRID_H/2, 1.0f);
     
     double lastTime = glfwGetTime();
@@ -273,7 +267,7 @@ int main(){
             }
         }
         
-        // update wave physics (slower, more stable)
+        //UPDATE NOTE: lower entropy (remove after bashing)
         updateWave(0.016f);
         
         int w,h;
@@ -285,7 +279,6 @@ int main(){
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(prog);
         
-        // upload wave data to texture
         glBindTexture(GL_TEXTURE_2D, waveTex);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, GRID_W, GRID_H, 0, GL_RED, GL_FLOAT, wave.data());
         
