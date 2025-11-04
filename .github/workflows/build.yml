@@ -63,13 +63,15 @@ jobs:
 
     - name: Setup vcpkg on Windows
       if: runner.os == 'Windows'
-      shell: cmd
+      shell: pwsh
       run: |
+        Write-Host "Setting up vcpkg..."
         git clone https://github.com/microsoft/vcpkg.git
         cd vcpkg
-        bootstrap-vcpkg.bat
-        vcpkg install glew glfw3 glm --triplet x64-windows
-        echo VCPKG_ROOT=%CD%>> %GITHUB_ENV%
+        .\bootstrap-vcpkg.bat
+        .\vcpkg install glew glfw3 glm --triplet x64-windows
+        echo "VCPKG_ROOT=$((Get-Location).Path)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        Write-Host "VCPKG_ROOT set to $((Get-Location).Path)"
 
     # ---- Shared Setup ----
     - name: Set reusable strings
@@ -77,6 +79,17 @@ jobs:
       shell: bash
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+    # ---- Debug VCPKG Path ----
+    - name: Verify vcpkg path
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Write-Host "Checking VCPKG_ROOT..."
+        Write-Host "VCPKG_ROOT = $env:VCPKG_ROOT"
+        if (-not (Test-Path "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake")) {
+          Write-Error "vcpkg toolchain file not found at $env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
+        }
 
     # ---- Configure CMake ----
     - name: Configure CMake (Windows)
@@ -87,7 +100,7 @@ jobs:
           -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} `
           -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} `
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} `
-          -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" `
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
           -S "${{ github.workspace }}"
 
     - name: Configure CMake (Linux/macOS)
