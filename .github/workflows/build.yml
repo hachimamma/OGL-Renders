@@ -42,6 +42,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    # ---- Linux Dependencies ----
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'
       run: |
@@ -50,34 +51,58 @@ jobs:
           libglfw3-dev libglew-dev libglm-dev libx11-dev libxi-dev \
           libxxf86vm-dev libxrandr-dev libxinerama-dev libxcursor-dev
 
+    # ---- Windows Dependencies (vcpkg) ----
+    - name: Cache vcpkg
+      if: runner.os == 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: vcpkg/installed
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-${{ runner.os }}-
+
     - name: Setup vcpkg on Windows
       if: runner.os == 'Windows'
+      shell: cmd
       run: |
         git clone https://github.com/microsoft/vcpkg.git
         cd vcpkg
         bootstrap-vcpkg.bat
-        vcpkg integrate install
         vcpkg install glew glfw3 glm --triplet x64-windows
-      shell: cmd
+        echo "VCPKG_ROOT=%CD%" >> %GITHUB_ENV%
 
+    # ---- Shared Setup ----
     - name: Set reusable strings
       id: strings
       shell: bash
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-    - name: Configure CMake
+    # ---- Configure CMake ----
+    - name: Configure CMake (Windows)
+      if: runner.os == 'Windows'
       run: >
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        ${{ runner.os == 'Windows' && format('-DCMAKE_TOOLCHAIN_FILE={0}/vcpkg/scripts/buildsystems/vcpkg.cmake', github.workspace) || '' }}
+        -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}\scripts\buildsystems\vcpkg.cmake
         -S ${{ github.workspace }}
 
+    - name: Configure CMake (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: >
+        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -S ${{ github.workspace }}
+
+    # ---- Build ----
     - name: Build
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
 
+    # ---- Test ----
     - name: Run tests (if available)
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
       continue-on-error: true
@@ -85,6 +110,7 @@ jobs:
         echo "Running tests (if any)..."
         ctest --build-config ${{ matrix.build_type }} || echo "No tests defined."
 
+    # ---- Upload Build Artifacts ----
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
