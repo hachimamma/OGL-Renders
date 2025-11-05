@@ -17,6 +17,7 @@ case $choice in
     title="Fractal Zooms"
     echo ""
     echo "Controls:"
+    echo ""
     echo "WASD - Pan Around"
     echo "Q/E - Zoom In/Zoom Out"
     echo "SPACE - Toggle Mandelbrot-Julia"
