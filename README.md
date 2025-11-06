@@ -45,7 +45,7 @@ chmod +x install.sh
 #### Windows (PowerShell)
 
 ```powershell
-.\setup.ps1
+.\install.ps1
 ```
 
 Both scripts automatically install required dependencies and compile the project.
