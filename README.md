@@ -1,7 +1,7 @@
 # OpenGL Renders
 
 This repository showcases a collection of visually striking and mathematically inspired **OpenGL renderings**, written entirely in **C++17**.
-Each module demonstrates a unique concept or simulation—ranging from **black holes** to **fractals** and **wave dynamics**, using low-level, modern OpenGL techniques.
+Each module demonstrates a unique concept or simulation - ranging from **black holes** to **fractals** and **wave dynamics**, using low-level, modern OpenGL techniques.
 
 The goal of this project is to explore graphics programming and mathematical visualization through efficient, modular, and creative render implementations.
 
