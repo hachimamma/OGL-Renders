@@ -37,6 +37,7 @@ elif [[ "$OS" == "macos" ]]; then
   brew install cmake glfw glew glm
 fi
 
+echo""
 echo "Dependencies installed! Building project"
 echo""
 
