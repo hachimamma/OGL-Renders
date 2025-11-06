@@ -36,6 +36,10 @@ For a one-step setup and build process:
 ```bash
 bash install.sh
 ```
+or
+```bash
+chmod +x install.sh
+```
 
 #### Windows (PowerShell)
 
