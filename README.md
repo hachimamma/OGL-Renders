@@ -34,7 +34,7 @@ For a one-step setup and build process:
 #### Linux / macOS
 
 ```bash
-bash setup.sh
+bash install.sh
 ```
 
 #### Windows (PowerShell)
