@@ -39,7 +39,7 @@ bash install.sh
 or
 ```bash
 chmod +x install.sh
-install.sh
+./install.sh
 ```
 
 #### Windows (PowerShell)
