@@ -1,24 +1,29 @@
-# windows gives me the trauma of my life.
+# Setup dependencies for OGL-Renders (Windows)
 
-Write-Host "=== Setting up OGL-Renders (Windows) ===" -ForegroundColor Cyan
+Write-Host "=== Installing Dependencies for OGL-Renders ===" -ForegroundColor Cyan
+
+if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
+    Write-Host "CMake not found. Installing via winget..." -ForegroundColor Yellow
+    winget install -e --id Kitware.CMake
+} else {
+    Write-Host "CMake already installed." -ForegroundColor Green
+}
+
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host "Git not found. Installing via winget..." -ForegroundColor Yellow
+    winget install -e --id Git.Git
+} else {
+    Write-Host "Git already installed." -ForegroundColor Green
+}
 
 $vcpkgPath = Join-Path $PSScriptRoot "vcpkg"
 if (!(Test-Path $vcpkgPath)) {
-    Write-Host "Cloning vcpkg..."
+    Write-Host "Cloning vcpkg..." -ForegroundColor Yellow
     git clone https://github.com/microsoft/vcpkg.git $vcpkgPath
-    Set-Location $vcpkgPath
-    .\bootstrap-vcpkg.bat
+    & "$vcpkgPath\bootstrap-vcpkg.bat"
 } else {
-    Write-Host "vcpkg already exists. Updating..."
-    Set-Location $vcpkgPath
-    git pull
+    Write-Host "vcpkg already exists." -ForegroundColor Green
 }
 
-Write-Host "Installing OpenGL dependencies with vcpkg..."
-.\vcpkg.exe install glew glfw3 glm --triplet x64-windows
-
-Set-Location $PSScriptRoot
-Write-Host "Running build..."
-bash build.sh
-
-Write-Host "Setup complete! You can now run your executable from the build directory."
+Write-Host "`nDependencies installed successfully!" -ForegroundColor Cyan
+Write-Host "You can now run ./build.ps1 to build your project."

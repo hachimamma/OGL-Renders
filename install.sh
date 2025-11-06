@@ -37,8 +37,9 @@ elif [[ "$OS" == "macos" ]]; then
   brew install cmake glfw glew glm
 fi
 
+echo "Dependencies installed! Building project"
+echo""
+
 echo "=== Building Project ==="
 chmod +x build.sh
 ./build.sh
-
-echo "Setup complete! You can now run your program from the build directory."
