@@ -55,7 +55,7 @@ Both scripts automatically install required dependencies and compile the project
 
 ### **2. Quick Build (Manual)**
 
-If you already have dependencies installed, simply run:
+For **Linux/MacOS**, If you already have dependencies installed, simply run:
 
 ```bash
 bash build.sh
@@ -66,6 +66,12 @@ Or manually:
 ```bash
 chmod +x build.sh
 ./build.sh
+```
+
+For **Windows**, If you already have dependencies installed, simply run:
+
+```powershell
+.\build.ps1
 ```
 
 ---
