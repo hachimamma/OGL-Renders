@@ -12,6 +12,7 @@ switch ($choice) {
     "1" {
         $exe = "blackhole"
         $title = "Blackhole Simulation"
+        Write-Host "`n Press ESC to exit"
     }
     "2" {
         $exe = "fractal"

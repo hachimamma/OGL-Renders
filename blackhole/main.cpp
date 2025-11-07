@@ -347,10 +347,6 @@ int main(){
     glm::mat4 mdl=glm::mat4(1.0f);
     glm::mat4 view=glm::translate(glm::mat4(1.0f),glm::vec3(0,0,-3));
     
-    std::cout<<"Ultra Quality Black Hole Renderer\n";
-    std::cout<<"Features: Volumetric lighting, 2x2 supersampling, ACES tone mapping\n";
-    std::cout<<"Press ESC to exit\n\n";
-    
     while(!glfwWindowShouldClose(win)){
         if(glfwGetKey(win,GLFW_KEY_ESCAPE)==GLFW_PRESS)
             glfwSetWindowShouldClose(win,true);
