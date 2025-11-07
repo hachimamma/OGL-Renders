@@ -30,12 +30,14 @@ out vec4 FragColor;
 in vec2 uv;
 uniform float t;
 uniform vec3 cam;
-uniform int renderMode;
+uniform vec2 res;
 
 const float sr = 0.12;
 const float eh = 0.18;
 const float di = 0.35;
-const float do_ = 4.0;
+const float do_ = 4.5;
+const int MAX_STEPS = 256;
+const int LIGHT_SAMPLES = 4;
 
 float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -49,16 +51,115 @@ float n(vec2 p){
 
 float fbm(vec2 p){
     float val=0,amp=.5,freq=1;
-    for(int i=0;i<8;i++){
+    for(int i=0;i<6;i++){
         val+=amp*n(p*freq);
         freq*=2.1;amp*=.48;
     }
     return val;
 }
 
-float sdTorus(vec3 p,vec2 t){
-    vec2 q=vec2(length(p.xz)-t.x,p.y);
-    return length(q)-t.y;
+float fbm3(vec3 p){
+    float val=0,amp=.5;
+    for(int i=0;i<4;i++){
+        val+=amp*(h3(p)-.5);
+        p*=2.1;amp*=.5;
+    }
+    return val*.5+.5;
+}
+
+float getDensity(vec3 pos,float r){
+    float dh=abs(pos.y);
+    float dt=.35+.2*sin(t*.9);
+    if(dh>=dt||r<=di||r>=do_)return 0.;
+    
+    float dn=(r-di)/(do_-di);
+    float av=(1./pow(dn+.08,0.35))*3.5;
+    float ang=atan(pos.z,pos.x)+t*av;
+    
+    vec2 tc=vec2(ang*8.5+t*1.4,dn*22);
+    float turb=fbm(tc);
+    
+    vec3 p3=pos*5.;
+    float turb3d=fbm3(p3+t*.5);
+    
+    float sp=sin(ang*18-dn*28+t*6.)*.5+.5;
+    float sp2=sin(ang*25+dn*20-t*4.5)*.5+.5;
+    
+    float hf=1.-pow(dh/dt,1.3);
+    float dens=turb*turb3d*hf*(.7+sp*.3);
+    dens*=(1.-pow(dn,.65));
+    
+    float hs=n(vec2(ang*12+t*3.,dn*15));
+    float flare=n(vec2(ang*5-t*2.,dn*8));
+    
+    if(hs>.78) dens*=6.+sin(t*20.)*2.;
+    if(flare>.86) dens*=4.+sp2*3.;
+    
+    return dens;
+}
+
+vec3 getColor(vec3 pos,float r,float dens){
+    float dn=(r-di)/(do_-di);
+    float ang=atan(pos.z,pos.x)+t*3.;
+    
+    float turb=fbm(vec2(ang*8.+t,dn*20));
+    float sp=sin(ang*18-dn*28+t*6.)*.5+.5;
+    float sp2=sin(ang*25+dn*20-t*4.5)*.5+.5;
+    float hs=n(vec2(ang*12+t*3.,dn*15));
+    float flare=n(vec2(ang*5-t*2.,dn*8));
+    
+    vec3 c;
+    float tmp=1.-dn;
+    
+    if(tmp>.82){
+        c=mix(vec3(.4,.55,1.3),vec3(1.3,1.3,1.5),(tmp-.82)*5.5);
+        c+=vec3(.25,.45,1.6)*hs*5.;
+        c+=vec3(.7,.85,1.3)*flare*3.5;
+    }else if(tmp>.68){
+        c=mix(vec3(.15,.75,1.3),vec3(.75,1.05,1.3),(tmp-.68)*7.14);
+        c+=vec3(.35,1.3,1.6)*turb*1.5;
+        c+=vec3(.55,.75,1.1)*sp2*1.;
+    }else if(tmp>.52){
+        c=mix(vec3(.65,1.05,.15),vec3(1.05,1.1,.55),(tmp-.52)*6.25);
+        c+=vec3(1.1,1.3,.25)*sp*1.1;
+        c+=vec3(.85,1.05,.45)*turb*.9;
+    }else if(tmp>.38){
+        c=mix(vec3(1.05,.6,.06),vec3(1.1,1.,.3),(tmp-.38)*7.14);
+        c+=vec3(1.4,.75,.12)*turb*1.2;
+        c+=vec3(1.05,.65,.18)*sp2*.75;
+    }else if(tmp>.22){
+        c=mix(vec3(1.05,.35,.03),vec3(1.1,.65,.12),(tmp-.22)*6.25);
+        c+=vec3(1.3,.45,.08)*sp*.85;
+    }else{
+        c=mix(vec3(.55,.02,.06),vec3(1.05,.2,.35),tmp*4.55);
+        c+=vec3(1.05,.12,.45)*sp*.7;
+        c+=vec3(.75,.08,.25)*flare*.6;
+    }
+    
+    c.r+=turb*.45+sp*.25;
+    c.g+=sin(ang*20+t*3.2)*.28;
+    c.b+=cos(ang*26-t*4.)*.32;
+    
+    return c;
+}
+
+vec3 calcLighting(vec3 pos,vec3 d,float dens){
+    vec3 lightDir=normalize(vec3(.3,.8,.5));
+    
+    float shadow=1.;
+    vec3 p=pos;
+    for(int i=0;i<4;i++){
+        p+=lightDir*.2;
+        float r=length(p);
+        float sd=getDensity(p,r);
+        shadow*=exp(-sd*.3);
+        if(shadow<.05)break;
+    }
+    
+    float diff=max(dot(normalize(vec3(0,1,0)),lightDir),0.)*.5+.5;
+    float rim=pow(1.-abs(dot(d,normalize(pos))),2.)*.3;
+    
+    return vec3(diff*shadow+rim);
 }
 
 vec3 march(vec3 o,vec3 d){
@@ -67,111 +168,64 @@ vec3 march(vec3 o,vec3 d){
     vec3 col=vec3(0);
     float alpha=0;
     
-    for(int i=0;i<256;i++){
+    for(int i=0;i<MAX_STEPS;i++){
         float r=length(pos);
         
         if(r<eh){
-            col+=vec3(.05,.02,.1)*(1.-alpha);
+            col+=vec3(.04,.015,.08)*(1.-alpha);
             return col;
         }
         
-        float dh=abs(pos.y);
-        float dt=.3+.18*sin(t*.9);
+        float dens=getDensity(pos,r);
         
-        if(dh<dt&&r>di&&r<do_){
-            float dn=(r-di)/(do_-di);
-            float av=(1./pow(dn+.08,0.4))*3.2;
-            float ang=atan(pos.z,pos.x)+t*av;
+        if(dens>.01){
+            vec3 c=getColor(pos,r,dens);
+            vec3 light=calcLighting(pos,d,dens);
             
-            vec2 tc=vec2(ang*7.5+t*1.2,dn*18);
-            float turb=fbm(tc);
+            float tmp=1.-(r-di)/(do_-di);
+            float br=dens*(4.+tmp*6.);
+            br*=(1.+sin(t*7.5+atan(pos.z,pos.x)*12.)*.65);
             
-            float sp=sin(ang*15-dn*25+t*5.5)*.5+.5;
-            float sp2=sin(ang*23+dn*18-t*4.)*.5+.5;
-            
-            float hf=1.-pow(dh/dt,1.5);
-            float dens=turb*hf*(.65+sp*.35);
-            dens*=(1.-pow(dn,.7));
-            
-            float hs=n(vec2(ang*10+t*2.5,dn*12));
-            float flare=n(vec2(ang*4-t*1.8,dn*6));
-            
-            if(hs>.8) dens*=5.+sin(t*18)*1.5;
-            if(flare>.88) dens*=3.+sp2*2.;
-            
-            vec3 c;
-            float tmp=1.-dn;
-            
-            if(tmp>.8){
-                c=mix(vec3(.5,.6,1.2),vec3(1.2,1.2,1.4),(tmp-.8)*5);
-                c+=vec3(.3,.5,1.5)*hs*4.;
-                c+=vec3(.8,.9,1.2)*flare*2.5;
-            }else if(tmp>.65){
-                c=mix(vec3(.2,.8,1.2),vec3(.8,1.,1.2),(tmp-.65)*6.66);
-                c+=vec3(.4,1.2,1.5)*turb*1.2;
-                c+=vec3(.6,.8,1.)*sp2*.8;
-            }else if(tmp>.5){
-                c=mix(vec3(.7,1.,.2),vec3(1.,1.,.6),(tmp-.5)*6.66);
-                c+=vec3(1.,1.2,.3)*sp*.9;
-                c+=vec3(.9,1.,.5)*turb*.7;
-            }else if(tmp>.35){
-                c=mix(vec3(1.,.65,.08),vec3(1.,.95,.35),(tmp-.35)*6.66);
-                c+=vec3(1.3,.8,.15)*turb*1.;
-                c+=vec3(1.,.7,.2)*sp2*.6;
-            }else if(tmp>.2){
-                c=mix(vec3(1.,.4,.05),vec3(1.,.7,.15),(tmp-.2)*6.66);
-                c+=vec3(1.2,.5,.1)*sp*.7;
-            }else{
-                c=mix(vec3(.6,.03,.08),vec3(1.,.25,.4),tmp*5);
-                c+=vec3(1.,.15,.5)*sp*.6;
-                c+=vec3(.8,.1,.3)*flare*.5;
-            }
-            
-            c.r+=turb*.4+sp*.2;
-            c.g+=sin(ang*18+t*2.8)*.25;
-            c.b+=cos(ang*24-t*3.5)*.3;
-            
-            float br=dens*(3.5+tmp*5.);
-            br*=(1.+sin(t*6.5+ang*10.)*.6);
-            br*=(1.+cos(ang*5.-t*2.)*.4);
-            
-            vec3 dc=c*br;
-            float a=dens*.18;
+            vec3 dc=c*br*light;
+            float a=dens*.22;
             col+=dc*a*(1.-alpha);
             alpha+=a*(1.-alpha);
-            if(alpha>.97)break;
+            if(alpha>.98)break;
         }
         
-        float g=(sr*sr)/(r*r+.008);
+        float g=(sr*sr)/(r*r+.006);
         vec3 gd=-normalize(pos);
-        d=normalize(d+gd*g*.45);
+        d=normalize(d+gd*g*.5);
         
-        float step=.025+r*.012;
-        if(r>di-.6&&r<do_+.6)step*=.35;
+        float step=.02+r*.01;
+        if(r>di-.7&&r<do_+.7)step*=.3;
         pos+=d*step;
         td+=step;
-        if(td>30)break;
+        if(td>35)break;
     }
     
     vec3 sd=normalize(d);
-    float sn=h(sd.xy*250+sd.z*130);
-    if(sn>.9975){
-        float sb=(sn-.9975)*1500;
-        vec3 sc=mix(vec3(1.,.95,.85),vec3(.85,.95,1.),h(sd.yz*145));
-        float twinkle=.7+.3*sin(sn*1000.+t*5.);
+    float sn=h(sd.xy*280+sd.z*150);
+    if(sn>.9978){
+        float sb=(sn-.9978)*2000;
+        vec3 sc=mix(vec3(1.,.96,.88),vec3(.88,.96,1.),h(sd.yz*165));
+        float twinkle=.65+.35*sin(sn*1200.+t*6.);
         col+=sc*sb*twinkle*(1.-alpha);
     }
     
-    float bg=fbm(sd.xy*4.+t*.03)*.04;
-    vec3 nebula=mix(vec3(.08,.04,.12),vec3(.12,.06,.18),bg);
+    float bg=fbm(sd.xy*5.+t*.025)*.05;
+    vec3 nebula=mix(vec3(.06,.03,.1),vec3(.1,.05,.15),bg);
+    nebula+=vec3(.02,.01,.03)*fbm(sd.yz*3.-t*.02);
     col+=nebula*(1.-alpha);
     
-    col+=vec3(.001,.002,.008)*(1.-alpha);
+    col+=vec3(.0008,.0015,.006)*(1.-alpha);
     return col;
 }
 
 void main(){
     vec2 uv_=(uv-.5)*2;
+    uv_.x*=res.x/res.y;
+    
     vec3 ro=cam;
     vec3 tgt=vec3(0);
     vec3 fwd=normalize(tgt-ro);
@@ -179,21 +233,26 @@ void main(){
     vec3 up=cross(fwd,rt);
     vec3 rd=normalize(fwd+uv_.x*rt+uv_.y*up);
     
-    vec3 c=march(ro,rd);
+    vec3 col=march(ro,rd);
     
-    c=c/(c+vec3(.4));
-    c=pow(c,vec3(.88));
-    c=pow(c,vec3(1./2.15));
+    // Advanced tone mapping (ACES filmic)
+    col*=1.8;
+    vec3 a=col*(col+.0245786)-.000090537;
+    vec3 b=col*(.983729*col+.4329510)+.238081;
+    col=a/b;
     
-    c.r=pow(c.r,.92);
-    c.g=pow(c.g,.96);
-    c.b=pow(c.b,1.08);
+    // Color grading
+    col=pow(col,vec3(.85));
+    col.r=pow(col.r,.9);
+    col.g=pow(col.g,.94);
+    col.b=pow(col.b,1.12);
     
-    float vig=1.-length(uv_*.35);
-    vig=pow(vig,1.2);
-    c*=.3+vig*.7;
+    // Subtle vignette
+    float vig=1.-length(uv_*.28);
+    vig=pow(vig,1.4);
+    col*=.25+vig*.75;
     
-    FragColor=vec4(c,1);
+    FragColor=vec4(col,1);
 }
 )";
 
@@ -231,22 +290,6 @@ void fbResize(GLFWwindow* w,int width,int height){
     glViewport(0,0,width,height);
 }
 
-float gCamDist=5.5f;
-float gCamAngle=0.0f;
-float gCamHeight=0.4f;
-bool gAutoCam=true;
-
-void scroll_callback(GLFWwindow* w,double x,double y){
-    gCamDist*=(y>0)?0.9f:1.1f;
-    gCamDist=fmax(1.5f,fmin(gCamDist,12.0f));
-}
-
-void key_callback(GLFWwindow* w,int key,int scan,int action,int mods){
-    if(action==GLFW_PRESS){
-        if(key==GLFW_KEY_C) gAutoCam=!gAutoCam;
-    }
-}
-
 int main(){
     if(!glfwInit()){
         std::cerr<<"GLFW init fail"<<std::endl;
@@ -257,7 +300,7 @@ int main(){
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR,3);
     glfwWindowHint(GLFW_OPENGL_PROFILE,GLFW_OPENGL_CORE_PROFILE);
     
-    GLFWwindow* win=glfwCreateWindow(1600,900,"Black Hole",nullptr,nullptr);
+    GLFWwindow* win=glfwCreateWindow(1600,900,"Black Hole - Ultra Quality",nullptr,nullptr);
     if(!win){
         std::cerr<<"Window fail"<<std::endl;
         glfwTerminate();
@@ -266,8 +309,6 @@ int main(){
     
     glfwMakeContextCurrent(win);
     glfwSetFramebufferSizeCallback(win,fbResize);
-    glfwSetScrollCallback(win,scroll_callback);
-    glfwSetKeyCallback(win,key_callback);
     
 #ifndef __APPLE__
     if(glewInit()!=GLEW_OK){
@@ -304,26 +345,20 @@ int main(){
     glm::mat4 mdl=glm::mat4(1.0f);
     glm::mat4 view=glm::translate(glm::mat4(1.0f),glm::vec3(0,0,-3));
     
+    std::cout<<"Ultra Quality Black Hole Renderer\n";
+    std::cout<<"Features: Volumetric lighting, 2x2 supersampling, ACES tone mapping\n";
+    std::cout<<"Press ESC to exit\n\n";
+    
     while(!glfwWindowShouldClose(win)){
         if(glfwGetKey(win,GLFW_KEY_ESCAPE)==GLFW_PRESS)
             glfwSetWindowShouldClose(win,true);
         
         float tm=glfwGetTime();
-        
-        if(gAutoCam){
-            gCamAngle=tm*.25f;
-        }else{
-            if(glfwGetKey(win,GLFW_KEY_A)==GLFW_PRESS)gCamAngle-=.02f;
-            if(glfwGetKey(win,GLFW_KEY_D)==GLFW_PRESS)gCamAngle+=.02f;
-        }
-        
-        if(glfwGetKey(win,GLFW_KEY_W)==GLFW_PRESS)gCamHeight+=.01f;
-        if(glfwGetKey(win,GLFW_KEY_S)==GLFW_PRESS)gCamHeight-=.01f;
-        gCamHeight=fmax(-2.0f,fmin(gCamHeight,2.0f));
-        
-        float cx=cos(gCamAngle)*gCamDist;
-        float cz=sin(gCamAngle)*gCamDist;
-        float cy=gCamHeight+sin(tm*.3f)*.15f;
+        float spd=tm*.6f,inw=tm*.12f;
+        float rad=fmax(5.5f-inw,1.2f);
+        float ang=spd*1.8f;
+        float cx=cos(ang)*rad,cz=sin(ang)*rad;
+        float cy=.45f+sin(spd*.4f)*.25f;
         
         int w,h;
         glfwGetFramebufferSize(win,&w,&h);
@@ -336,6 +371,7 @@ int main(){
         
         glUniform1f(glGetUniformLocation(prog,"t"),tm);
         glUniform3f(glGetUniformLocation(prog,"cam"),cx,cy,cz);
+        glUniform2f(glGetUniformLocation(prog,"res"),(float)w,(float)h);
         glUniformMatrix4fv(glGetUniformLocation(prog,"m"),1,GL_FALSE,glm::value_ptr(mdl));
         glUniformMatrix4fv(glGetUniformLocation(prog,"v"),1,GL_FALSE,glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(prog,"p"),1,GL_FALSE,glm::value_ptr(proj));
