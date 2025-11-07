@@ -11,6 +11,8 @@ case $choice in
 1)
     exe="blackhole"
     title="Blackhole Simulation"
+    echo ""
+    echo "Press ESC to exit"
     ;;
 2)
     exe="fractal"
