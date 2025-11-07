@@ -1,3 +1,4 @@
+// blackhole/main.cpp
 #ifdef __APPLE__
     #define GL_SILENCE_DEPRECATION
     #include <OpenGL/gl3.h>
@@ -69,76 +70,76 @@ float fbm3(vec3 p){
 
 float getDensity(vec3 pos,float r){
     float dh=abs(pos.y);
-    float dt=.35+.2*sin(t*.9);
+    float dt=.4+.25*sin(t*.8);
     if(dh>=dt||r<=di||r>=do_)return 0.;
     
     float dn=(r-di)/(do_-di);
-    float av=(1./pow(dn+.08,0.35))*3.5;
+    float av=(1./pow(dn+.05,0.4))*4.2;
     float ang=atan(pos.z,pos.x)+t*av;
     
-    vec2 tc=vec2(ang*8.5+t*1.4,dn*22);
+    vec2 tc=vec2(ang*9.+t*1.6,dn*24);
     float turb=fbm(tc);
     
-    vec3 p3=pos*5.;
-    float turb3d=fbm3(p3+t*.5);
+    vec3 p3=pos*4.;
+    float turb3d=fbm3(p3+t*.4);
     
-    float sp=sin(ang*18-dn*28+t*6.)*.5+.5;
-    float sp2=sin(ang*25+dn*20-t*4.5)*.5+.5;
+    float sp=sin(ang*22-dn*32+t*7.)*.5+.5;
+    float sp2=sin(ang*28+dn*22-t*5.5)*.5+.5;
     
-    float hf=1.-pow(dh/dt,1.3);
-    float dens=turb*turb3d*hf*(.7+sp*.3);
-    dens*=(1.-pow(dn,.65));
+    float hf=1.-pow(dh/dt,1.1);
+    float dens=turb*turb3d*hf*(.75+sp*.25);
+    dens*=(1.-pow(dn,.55));
     
-    float hs=n(vec2(ang*12+t*3.,dn*15));
-    float flare=n(vec2(ang*5-t*2.,dn*8));
+    float hs=n(vec2(ang*14+t*3.5,dn*16));
+    float flare=n(vec2(ang*6-t*2.2,dn*9));
     
-    if(hs>.78) dens*=6.+sin(t*20.)*2.;
-    if(flare>.86) dens*=4.+sp2*3.;
+    if(hs>.75) dens*=7.+sin(t*22.)*2.5;
+    if(flare>.83) dens*=5.+sp2*3.5;
     
     return dens;
 }
 
 vec3 getColor(vec3 pos,float r,float dens){
     float dn=(r-di)/(do_-di);
-    float ang=atan(pos.z,pos.x)+t*3.;
+    float ang=atan(pos.z,pos.x)+t*3.5;
     
-    float turb=fbm(vec2(ang*8.+t,dn*20));
-    float sp=sin(ang*18-dn*28+t*6.)*.5+.5;
-    float sp2=sin(ang*25+dn*20-t*4.5)*.5+.5;
-    float hs=n(vec2(ang*12+t*3.,dn*15));
-    float flare=n(vec2(ang*5-t*2.,dn*8));
+    float turb=fbm(vec2(ang*9.+t*1.2,dn*22));
+    float sp=sin(ang*22-dn*32+t*7.)*.5+.5;
+    float sp2=sin(ang*28+dn*22-t*5.5)*.5+.5;
+    float hs=n(vec2(ang*14+t*3.5,dn*16));
+    float flare=n(vec2(ang*6-t*2.2,dn*9));
     
     vec3 c;
     float tmp=1.-dn;
     
-    if(tmp>.82){
-        c=mix(vec3(.4,.55,1.3),vec3(1.3,1.3,1.5),(tmp-.82)*5.5);
-        c+=vec3(.25,.45,1.6)*hs*5.;
-        c+=vec3(.7,.85,1.3)*flare*3.5;
-    }else if(tmp>.68){
-        c=mix(vec3(.15,.75,1.3),vec3(.75,1.05,1.3),(tmp-.68)*7.14);
-        c+=vec3(.35,1.3,1.6)*turb*1.5;
-        c+=vec3(.55,.75,1.1)*sp2*1.;
-    }else if(tmp>.52){
-        c=mix(vec3(.65,1.05,.15),vec3(1.05,1.1,.55),(tmp-.52)*6.25);
-        c+=vec3(1.1,1.3,.25)*sp*1.1;
-        c+=vec3(.85,1.05,.45)*turb*.9;
-    }else if(tmp>.38){
-        c=mix(vec3(1.05,.6,.06),vec3(1.1,1.,.3),(tmp-.38)*7.14);
-        c+=vec3(1.4,.75,.12)*turb*1.2;
-        c+=vec3(1.05,.65,.18)*sp2*.75;
-    }else if(tmp>.22){
-        c=mix(vec3(1.05,.35,.03),vec3(1.1,.65,.12),(tmp-.22)*6.25);
-        c+=vec3(1.3,.45,.08)*sp*.85;
+    if(tmp>.85){
+        c=mix(vec3(.3,.5,1.6),vec3(1.5,1.6,2.),(tmp-.85)*6.66);
+        c+=vec3(.2,.4,2.2)*hs*6.;
+        c+=vec3(.6,.8,1.8)*flare*4.;
+    }else if(tmp>.7){
+        c=mix(vec3(.1,.7,1.5),vec3(.7,1.2,1.8),(tmp-.7)*6.66);
+        c+=vec3(.3,1.5,2.)*turb*2.;
+        c+=vec3(.5,.9,1.4)*sp2*1.4;
+    }else if(tmp>.55){
+        c=mix(vec3(.6,1.2,.1),vec3(1.2,1.4,.5),(tmp-.55)*6.66);
+        c+=vec3(1.3,1.6,.2)*sp*1.5;
+        c+=vec3(.8,1.2,.4)*turb*1.2;
+    }else if(tmp>.4){
+        c=mix(vec3(1.2,.7,.05),vec3(1.4,1.1,.3),(tmp-.4)*6.66);
+        c+=vec3(1.8,.9,.1)*turb*1.6;
+        c+=vec3(1.3,.8,.15)*sp2*1.;
+    }else if(tmp>.25){
+        c=mix(vec3(1.3,.4,.02),vec3(1.4,.8,.1),(tmp-.25)*6.66);
+        c+=vec3(1.6,.6,.05)*sp*1.1;
     }else{
-        c=mix(vec3(.55,.02,.06),vec3(1.05,.2,.35),tmp*4.55);
-        c+=vec3(1.05,.12,.45)*sp*.7;
-        c+=vec3(.75,.08,.25)*flare*.6;
+        c=mix(vec3(.7,.02,.05),vec3(1.3,.25,.4),tmp*4.);
+        c+=vec3(1.4,.1,.5)*sp*.9;
+        c+=vec3(.9,.05,.3)*flare*.7;
     }
     
-    c.r+=turb*.45+sp*.25;
-    c.g+=sin(ang*20+t*3.2)*.28;
-    c.b+=cos(ang*26-t*4.)*.32;
+    c.r+=turb*.5+sp*.3;
+    c.g+=sin(ang*24+t*3.8)*.35;
+    c.b+=cos(ang*30-t*4.5)*.4;
     
     return c;
 }
@@ -183,11 +184,12 @@ vec3 march(vec3 o,vec3 d){
             vec3 light=calcLighting(pos,d,dens);
             
             float tmp=1.-(r-di)/(do_-di);
-            float br=dens*(4.+tmp*6.);
-            br*=(1.+sin(t*7.5+atan(pos.z,pos.x)*12.)*.65);
+            float br=dens*(5.5+tmp*7.5);
+            br*=(1.+sin(t*9.+atan(pos.z,pos.x)*15.)*.75);
+            br*=(1.+cos(atan(pos.z,pos.x)*8.-t*3.)*.5);
             
             vec3 dc=c*br*light;
-            float a=dens*.22;
+            float a=dens*.25;
             col+=dc*a*(1.-alpha);
             alpha+=a*(1.-alpha);
             if(alpha>.98)break;
@@ -236,16 +238,16 @@ void main(){
     vec3 col=march(ro,rd);
     
     // Advanced tone mapping (ACES filmic)
-    col*=1.8;
+    col*=2.2;
     vec3 a=col*(col+.0245786)-.000090537;
     vec3 b=col*(.983729*col+.4329510)+.238081;
     col=a/b;
     
     // Color grading
-    col=pow(col,vec3(.85));
-    col.r=pow(col.r,.9);
-    col.g=pow(col.g,.94);
-    col.b=pow(col.b,1.12);
+    col=pow(col,vec3(.82));
+    col.r=pow(col.r,.88);
+    col.g=pow(col.g,.92);
+    col.b=pow(col.b,1.15);
     
     // Subtle vignette
     float vig=1.-length(uv_*.28);
