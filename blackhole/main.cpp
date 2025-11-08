@@ -1,4 +1,3 @@
-// blackhole/main.cpp
 #ifdef __APPLE__
     #define GL_SILENCE_DEPRECATION
     #include <OpenGL/gl3.h>
@@ -113,33 +112,33 @@ vec3 getColor(vec3 pos,float r,float dens){
     float tmp=1.-dn;
     
     if(tmp>.85){
-        c=mix(vec3(.3,.5,1.6),vec3(1.5,1.6,2.),(tmp-.85)*6.66);
-        c+=vec3(.2,.4,2.2)*hs*6.;
-        c+=vec3(.6,.8,1.8)*flare*4.;
+        c=mix(vec3(.25,.4,1.),vec3(.9,1.,1.2),(tmp-.85)*6.66);
+        c+=vec3(.15,.3,1.2)*hs*3.;
+        c+=vec3(.4,.6,1.)*flare*2.;
     }else if(tmp>.7){
-        c=mix(vec3(.1,.7,1.5),vec3(.7,1.2,1.8),(tmp-.7)*6.66);
-        c+=vec3(.3,1.5,2.)*turb*2.;
-        c+=vec3(.5,.9,1.4)*sp2*1.4;
+        c=mix(vec3(.08,.5,1.),vec3(.5,.8,1.),(tmp-.7)*6.66);
+        c+=vec3(.2,.9,1.2)*turb*1.2;
+        c+=vec3(.3,.6,.9)*sp2*.8;
     }else if(tmp>.55){
-        c=mix(vec3(.6,1.2,.1),vec3(1.2,1.4,.5),(tmp-.55)*6.66);
-        c+=vec3(1.3,1.6,.2)*sp*1.5;
-        c+=vec3(.8,1.2,.4)*turb*1.2;
+        c=mix(vec3(.4,.8,.08),vec3(.8,.9,.35),(tmp-.55)*6.66);
+        c+=vec3(.9,1.,.15)*sp*.9;
+        c+=vec3(.6,.8,.25)*turb*.7;
     }else if(tmp>.4){
-        c=mix(vec3(1.2,.7,.05),vec3(1.4,1.1,.3),(tmp-.4)*6.66);
-        c+=vec3(1.8,.9,.1)*turb*1.6;
-        c+=vec3(1.3,.8,.15)*sp2*1.;
+        c=mix(vec3(.8,.5,.03),vec3(.9,.7,.2),(tmp-.4)*6.66);
+        c+=vec3(1.,.6,.08)*turb*.9;
+        c+=vec3(.8,.5,.1)*sp2*.6;
     }else if(tmp>.25){
-        c=mix(vec3(1.3,.4,.02),vec3(1.4,.8,.1),(tmp-.25)*6.66);
-        c+=vec3(1.6,.6,.05)*sp*1.1;
+        c=mix(vec3(.9,.3,.015),vec3(.95,.55,.08),(tmp-.25)*6.66);
+        c+=vec3(1.,.4,.03)*sp*.6;
     }else{
-        c=mix(vec3(.7,.02,.05),vec3(1.3,.25,.4),tmp*4.);
-        c+=vec3(1.4,.1,.5)*sp*.9;
-        c+=vec3(.9,.05,.3)*flare*.7;
+        c=mix(vec3(.5,.015,.03),vec3(.85,.18,.25),tmp*4.);
+        c+=vec3(.9,.08,.3)*sp*.5;
+        c+=vec3(.6,.03,.2)*flare*.4;
     }
     
-    c.r+=turb*.5+sp*.3;
-    c.g+=sin(ang*24+t*3.8)*.35;
-    c.b+=cos(ang*30-t*4.5)*.4;
+    c.r+=turb*.3+sp*.2;
+    c.g+=sin(ang*24+t*3.8)*.2;
+    c.b+=cos(ang*30-t*4.5)*.25;
     
     return c;
 }
@@ -184,12 +183,12 @@ vec3 march(vec3 o,vec3 d){
             vec3 light=calcLighting(pos,d,dens);
             
             float tmp=1.-(r-di)/(do_-di);
-            float br=dens*(5.5+tmp*7.5);
-            br*=(1.+sin(t*9.+atan(pos.z,pos.x)*15.)*.75);
-            br*=(1.+cos(atan(pos.z,pos.x)*8.-t*3.)*.5);
+            float br=dens*(3.5+tmp*5.);
+            br*=(1.+sin(t*9.+atan(pos.z,pos.x)*15.)*.5);
+            br*=(1.+cos(atan(pos.z,pos.x)*8.-t*3.)*.35);
             
             vec3 dc=c*br*light;
-            float a=dens*.25;
+            float a=dens*.2;
             col+=dc*a*(1.-alpha);
             alpha+=a*(1.-alpha);
             if(alpha>.98)break;
@@ -208,19 +207,19 @@ vec3 march(vec3 o,vec3 d){
     
     vec3 sd=normalize(d);
     float sn=h(sd.xy*280+sd.z*150);
-    if(sn>.9978){
-        float sb=(sn-.9978)*2000;
-        vec3 sc=mix(vec3(1.,.96,.88),vec3(.88,.96,1.),h(sd.yz*165));
-        float twinkle=.65+.35*sin(sn*1200.+t*6.);
+    if(sn>.998){
+        float sb=(sn-.998)*800;
+        vec3 sc=mix(vec3(.9,.92,.85),vec3(.85,.92,.98),h(sd.yz*165));
+        float twinkle=.7+.3*sin(sn*1200.+t*6.);
         col+=sc*sb*twinkle*(1.-alpha);
     }
     
-    float bg=fbm(sd.xy*5.+t*.025)*.05;
-    vec3 nebula=mix(vec3(.06,.03,.1),vec3(.1,.05,.15),bg);
-    nebula+=vec3(.02,.01,.03)*fbm(sd.yz*3.-t*.02);
+    float bg=fbm(sd.xy*5.+t*.025)*.035;
+    vec3 nebula=mix(vec3(.04,.02,.08),vec3(.08,.04,.12),bg);
+    nebula+=vec3(.015,.008,.02)*fbm(sd.yz*3.-t*.02);
     col+=nebula*(1.-alpha);
     
-    col+=vec3(.0008,.0015,.006)*(1.-alpha);
+    col+=vec3(.0005,.001,.004)*(1.-alpha);
     return col;
 }
 
@@ -237,19 +236,16 @@ void main(){
     
     vec3 col=march(ro,rd);
     
-    // Advanced tone mapping (ACES filmic)
     col*=2.2;
     vec3 a=col*(col+.0245786)-.000090537;
     vec3 b=col*(.983729*col+.4329510)+.238081;
     col=a/b;
     
-    // Color grading
     col=pow(col,vec3(.82));
     col.r=pow(col.r,.88);
     col.g=pow(col.g,.92);
     col.b=pow(col.b,1.15);
     
-    // Subtle vignette
     float vig=1.-length(uv_*.28);
     vig=pow(vig,1.4);
     col*=.25+vig*.75;
@@ -346,6 +342,10 @@ int main(){
     GLuint prog=mkProg();
     glm::mat4 mdl=glm::mat4(1.0f);
     glm::mat4 view=glm::translate(glm::mat4(1.0f),glm::vec3(0,0,-3));
+    
+    std::cout<<"Ultra Quality Black Hole Renderer\n";
+    std::cout<<"Features: Volumetric lighting, 2x2 supersampling, ACES tone mapping\n";
+    std::cout<<"Press ESC to exit\n\n";
     
     while(!glfwWindowShouldClose(win)){
         if(glfwGetKey(win,GLFW_KEY_ESCAPE)==GLFW_PRESS)
